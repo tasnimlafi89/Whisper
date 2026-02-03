@@ -1,12 +1,17 @@
 import type {Request,Response,NextFunction} from "express";
 
 export const errorHandler=(err:Error,_req:Request,res:Response,_next:NextFunction) =>{
-    console.log("Error:",err.message);
+    console.error("Error:", err);
 
-    const StatusCode=res.statusCode !==200 ? res.statusCode:500
+    const statusCode = res.statusCode !== 200 ? res.statusCode : 500;
+    const isServerError = statusCode >= 500;
+    const safeMessage =
+        !isServerError || process.env.NODE_ENV === "development"
+            ? (err instanceof Error ? err.message : String(err))
+            : "Internal server error";
 
-    res.status(StatusCode).json({
-        message:err.message || "Internal server Error",
+    res.status(statusCode).json({
+        message: safeMessage,
         ...(process.env.NODE_ENV === "development" && {stack:err.stack}),
 
     });
