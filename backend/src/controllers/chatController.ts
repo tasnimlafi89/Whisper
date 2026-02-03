@@ -12,14 +12,14 @@ export async function getChats(req:AuthRequest,res:Response,next:NextFunction){
             "participants",
             "name email avatar"
         ).populate("lastMessage")
-        .sort({lastMesssageAt:-1});
+        .sort({lastMessageAt:-1});
 
         const formattedChats = chats.map(chat => {
             const otherParticipant=chat.participants.find(p => p._id.toString() !== userId)
             
             return {
                 _id:chat._id,
-                participant:otherParticipant,
+                participant:otherParticipant ?? null,
                 lastMessage:chat.lastMessage,
                 lastMessageAt:chat.lastMessageAt,
                 createdAt:chat.createdAt,
@@ -37,9 +37,19 @@ export async function getOrCreateChat(req:AuthRequest,res:Response,next:NextFunc
         const userId =req.userId;
         const { participantId } = req.params;
 
+        if(!participantId){
+            res.status(400).json({message:"Participant Id is required"})
+            return;
+        }
+
+        if(userId === participantId){
+            res.status(400).json({message:"Cannot create chat with yourself"});
+            return;
+        }
+
         //check if chat already exists
         let chat= await Chat.findOne({
-            particpants:{$all:[userId, participantId]},
+            participants:{$all:[userId, participantId]},
         }).populate(
             "participants",
             "name email avatar"

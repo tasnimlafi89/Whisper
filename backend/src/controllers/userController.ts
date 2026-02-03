@@ -6,7 +6,7 @@ export async function getUsers(req:AuthRequest,res:Response,next:NextFunction){
         const userId=req.userId;
 
         const users=await User.find({_id:{$ne:userId}})
-        .select("name email avater")
+        .select("name email avatar")
         .limit(50);
 
         res.json(users)
