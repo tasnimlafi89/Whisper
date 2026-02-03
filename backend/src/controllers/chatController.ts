@@ -1,6 +1,7 @@
 import type { Response,NextFunction } from "express";
 import type { AuthRequest } from "../middleware/auth";
 import { Chat } from "../models/Chat";
+import { Types } from "mongoose";
 
 
 //this methode shows all the chats already existing on the right side of the screen
@@ -39,6 +40,10 @@ export async function getOrCreateChat(req:AuthRequest,res:Response,next:NextFunc
 
         if(!participantId){
             res.status(400).json({message:"Participant Id is required"})
+            return;
+        }
+        if(!Types.ObjectId.isValid(participantId)){
+            res.status(400).json({message:"Invalid participant Id"});
             return;
         }
 
