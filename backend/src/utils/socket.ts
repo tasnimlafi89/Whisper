@@ -5,9 +5,6 @@ import {Message} from "../models/Message";
 import {Chat} from "../models/Chat";
 import {User} from "../models/User";
 
-interface SocketWithUserId extends Socket{
-    userId:string;
-}
 
 //store online users in memory: userId -> socketId  
 export const onlineUsers:Map<string,string> = new Map()
@@ -16,7 +13,7 @@ export const initializeSocket = (httpServer:HttpServer) => {
     const allowedOrigins= [
         "http://localhost:8081",
         "http://localhost:5173",
-        process.env.FORNTEND_URL as string,
+        process.env.FRONTEND_URL as string,
     ]
 
     const io =new SocketServer(httpServer,{cors:{origin: allowedOrigins}})
@@ -32,15 +29,16 @@ export const initializeSocket = (httpServer:HttpServer) => {
 
             const user = await User.findOne({clerkId});
             if(!user) return next(new Error("user not found"));
-            (socket as SocketWithUserId).userId = user._id.toString()
+            socket.data.userId = user._id.toString()
+            next(); //Allow connection to proceed
         }catch(error:any){
-            next(new Error(error))
+            next(new Error(error.message || "Authentication failed"))
         }
     })
     //this "connection" event name is special and should be written like this
     //it's the evnet that is triggered when a new client connects to the server
     io.on("connection",(socket)=>{
-        const userId= (socket as SocketWithUserId).userId 
+        const userId= socket.data.userId 
 
         // send list of currently online users to the newely connected client
         socket.emit("online-users",{userIds:Array.from(onlineUsers.keys())});
@@ -65,10 +63,11 @@ export const initializeSocket = (httpServer:HttpServer) => {
         socket.on("send-message",async(data:{chatId:string,text:string})=>{
             try {
                 const {chatId,text}=data
+
                 const chat= await Chat.findOne({
                     _id:chatId,
-                    participant:userId
-            })
+                    participants:userId,
+            });
 
             if(!chat){
                 socket.emit("socket-error",{message:"Chat not found"});
@@ -84,7 +83,7 @@ export const initializeSocket = (httpServer:HttpServer) => {
             chat.lastMessageAt=new Date();
             await chat.save();
 
-            await message.populate("sender","name email avatar");
+            await message.populate("sender","name avatar");
 
             // emit to chat room( for users inside the chat)
             io.to(`chat:${chatId}`).emit("new-message",message);
